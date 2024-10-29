@@ -4,11 +4,12 @@ import random
 from scipy.fftpack import dct, idct
 from util import mid_band_mask, correlate
 from dwt import haar_dwt2, haar_idwt2
+from math import *
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 
 block = 4
-gain = 16
+gain = 8
 
 np.random.seed(2)
 mask = mid_band_mask(block)
@@ -42,21 +43,43 @@ def decode_dct(input_array):
       decoded_msg.append(bit)
   return decoded_msg
 
-size = 512
-
-file = input("image: ")
-msg = input("message: ")
+file = "ogey.jpg"
+msg = "Hello World" * 20
 source_msg = [ int(y) for y in "".join([bin(x)[2:].zfill(8) for x in map(ord, msg)]) ] + [0] * (4096 - len(msg) * 8)
 
-img = Image.open(file).resize((size, size), 1).convert('L')
-image_array = np.array(img.getdata(), dtype=np.float32).reshape((size,size))
+img = Image.open(file)
+width, height = img.size
 
-LL, LH, HL, HH = haar_dwt2(image_array)
-HL = encode_dct(HL, source_msg)
-output_array = haar_idwt2(LL, LH, HL, HH)
+if height < width:
+  h = 2**(ceil(log(img.size[1])/log(2)))
+  w = h * width // height
+  size = h
+else:
+  w = 2**(ceil(log(img.size[0])/log(2)))
+  h = w * height // width
+  size = w
 
-print("encoded into steg.jpg")
+img = img.resize((w,h)).convert('L')
+image_array = np.array(img.getdata(), dtype=np.float32).reshape((h,w))
+sub_array = image_array[0:size,0:size]
 
-res = Image.fromarray(output_array).convert("RGB")
+def recursive_encode(sub_array):
+  print(sub_array.shape)
+  if sub_array.shape[0] != 512:
+    LL, LH, HL, HH = haar_dwt2(sub_array)
+    LL = recursive_encode(LL)
+    return haar_idwt2(LL, LH, HL, HH)
+  else:
+    LL, LH, HL, HH = haar_dwt2(sub_array)
+    LL2, LH2, HL2, HH2 = haar_dwt2(HH)
+    HH2 = encode_dct(HH2, source_msg)
+    HH = haar_idwt2(LL2, LH2, HL2, HH2)
+    return haar_idwt2(LL, LH, HL, HH)
+
+sub_array = recursive_encode(sub_array)
+
+image_array[0:size,0:size] = sub_array
+
+res = Image.fromarray(image_array).convert("RGB")
 res.save("steg.jpg")
 res.show()
