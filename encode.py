@@ -8,8 +8,8 @@ from math import *
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 
-block = 8
-gain = 8
+block = 4
+gain = 12
 
 np.random.seed(2)
 mask = mid_band_mask(block)
