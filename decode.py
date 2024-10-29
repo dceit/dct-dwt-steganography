@@ -8,19 +8,19 @@ from math import *
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 
-block = 4
+block = 8
 gain = 8
 
 np.random.seed(2)
 mask = mid_band_mask(block)
-P_0 = mask * np.random.randint(-gain, gain, (block,block))
-P_1 = mask * np.random.randint(-gain, gain, (block,block))
 
 def decode_dct(input_array):
   size = input_array.shape[0]
   decoded_msg = []
   for i in range(0, size, block):
     for j in range(0, size, block):
+      P_0 = mask * np.random.randint(-gain, gain, (block,block))
+      P_1 = mask * np.random.randint(-gain, gain, (block,block))
       source_array = input_array[i:i+block, j:j+block]
       dct_array = dct(dct(source_array.T, norm="ortho").T, norm="ortho")
       r1 = correlate(dct_array * mask, P_0)
@@ -51,9 +51,9 @@ else:
   h = w * height // width
   size = w
 
-img = img.resize((w,h)).convert('L')
-image_array = np.array(img.getdata(), dtype=np.float32).reshape((h,w))
-sub_array = image_array[0:size,0:size]
+img = img.resize((w,h)).convert("YCbCr")
+image_array = np.array(img.getdata(), dtype=np.float32).reshape((h,w,3))
+sub_array = image_array[0:size,0:size,0]
 
 decoded_msg = recursive_decode(sub_array)
 bin_str = "".join(map(str, decoded_msg))
