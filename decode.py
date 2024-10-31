@@ -8,8 +8,8 @@ from math import *
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 
-block = 4
-gain = 12
+block = 8
+gain = 16
 
 np.random.seed(2)
 mask = mid_band_mask(block)
@@ -31,7 +31,7 @@ def decode_dct(input_array):
 
 def recursive_decode(sub_array):
   print(sub_array.shape)
-  if sub_array.shape[0] != 512:
+  if sub_array.shape[0] != 1024:
     LL, LH, HL, HH = haar_dwt2(sub_array)
     return recursive_decode(LL)
   else:

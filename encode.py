@@ -8,8 +8,8 @@ from math import *
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 
-block = 4
-gain = 12
+block = 8
+gain = 16
 
 np.random.seed(2)
 mask = mid_band_mask(block)
@@ -32,7 +32,7 @@ def encode_dct(input_array, msg):
 
 def recursive_encode(sub_array):
   print(sub_array.shape)
-  if sub_array.shape[0] != 512:
+  if sub_array.shape[0] != 1024:
     LL, LH, HL, HH = haar_dwt2(sub_array)
     LL = recursive_encode(LL)
     return haar_idwt2(LL, LH, HL, HH)
@@ -67,6 +67,6 @@ sub_array = recursive_encode(sub_array)
 
 image_array[0:size,0:size,0] = sub_array
 
-res = Image.fromarray(np.clip(np.floor(image_array), 0, 255).astype(np.uint8), "YCbCr").convert("RGB")
+res = Image.fromarray(np.clip(np.floor(image_array), 0, 255).astype(np.uint8), "YCbCr").convert("RGB").resize((width, height))
 res.save("steg.jpg")
 res.show()
