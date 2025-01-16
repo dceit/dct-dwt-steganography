@@ -108,16 +108,17 @@ function recursiveDecode(dataArray, currentSize, desiredSize) {
 }
 
 function convertBinary(asciiString) {
+  const contentArray = new Uint8Array(contentLength);
   const bufferArray = new Uint8Array(ec.messageLength);
   const intArray = new Uint8Array(maxLength);
   
-  const contentLength = Math.min(intArray.length, asciiString.length);
-  const numChunks = Math.floor(contentLength / ec.dataLength);
+  for (let i = 0; i < Math.min(contentArray.length, asciiString.length); i++) {
+    contentArray[i] = asciiString[i].charCodeAt(0);
+  }
   
-  for (let i = 0; i < numChunks; i++) {
+  for (let i = 0; i < maxLength / ec.messageLength; i++) {
     for (let j = 0; j < ec.dataLength; j++) {
-      if (i * ec.dataLength + j >= asciiString.length) break;
-      bufferArray[j] = asciiString[i * ec.dataLength + j].charCodeAt(0);
+      bufferArray[j] = contentArray[i * ec.dataLength + j];
     }
     
     ec.encode(bufferArray);
