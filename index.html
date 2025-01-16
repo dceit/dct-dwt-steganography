@@ -2,7 +2,7 @@
 <html>
   <head>
     <style>
-p {
+body {
   font-family: monospace;
   overflow-wrap: break-word;
 }
@@ -15,23 +15,50 @@ h1 {
   text-align: center;
   margin-bottom: 0;
 }
+
+input {
+  vertical-align: middle;
+}
+
+#full {
+  border: 1px solid;
+  width: 100%;
+  height: 100%;
+}
     </style>
   </head>
   <body>
-    <h1>Image based Stegranography</h1>
-    <p>DWT-DCT method to hide messages inside an image. Implementation based off of this paper: <a href="https://www.researchgate.net/publication/26621646_Combined_DWT-DCT_digital_image_watermarking">https://www.researchgate.net/publication/26621646_Combined_DWT-DCT_digital_image_watermarking</a></p>
-    <label for="img">Select image:</label>
-    <input type="file" id="source" name="img" accept="image/*">
-    <br>
-    <textarea placeholder="Enter text to encode here" cols=62 id="text"></textarea>
-    <br>
-    <button id="encode">Encode</button>
-    <button id="decode">Decode</button>
-    <button id="save">Save</button>
-    <br>
-    <p id="output"></p>
-    <canvas width="512" height="512" style="border: 1px solid" id="buffer" hidden></canvas>
-    <img id="display"></img>
-    <script src="main.js" type="module"></script>
+    <div style="border:1px solid" draggable="true" id="drop">
+      <h1>Image based Steganography</h1>
+      <p>DWT-DCT method to hide messages inside an image. Implementation based off of this paper:
+        <a href="https://pdfs.semanticscholar.org/1c47/f281c00cffad4e30deff48a922553cb04d17.pdf">
+          Ali Al-Haj, "Combined DWT-DCT Digital Image Watermarking", September 2007
+        </a>
+      </p>
+      <div style="display: flex;">
+        <div style="padding-right: 20px">
+          <label for="img">Select, drop or paste image:</label>
+          <input type="file" id="source" name="img" accept="image/*">
+          <br>
+          <textarea placeholder="Enter text to encode here" cols=62 rows=15 id="text"></textarea>
+          <br>
+          <p id="count"></p>
+          <button id="encode">Encode</button>
+          <button id="decode">Decode</button>
+          <button id="save">Save</button>
+          <br>
+          Message Intensity: <input type="range" id="gain" min="4" max="32" value="12">
+        </div>
+        <div>
+          <p id="info">WIDTHxHEIGHT</p>
+          <img id="target" hidden></img>
+          <canvas id="preview" width="512" height="512" style="border: 1px solid;"></canvas>
+        </div>
+      </div>
+      <p id="output"></p>
+      <canvas width="512" height="512" style="border: 1px solid" id="buffer" hidden></canvas>
+      <img id="display"></img>
+      <script src="main.js" type="module"></script>
+    </div>
   </body>
 </html>

@@ -1,22 +1,52 @@
 "use strict";
 
+import * as rs from "./reedSolomon.js";
 import { dctApply, idctApply } from "./dct.js";
 import { dwtApply, idwtApply } from "./dwt.js";
 import { cyrb128, sfc32 } from "./rand.js";
 
+function RS(messageLength, errorCorrectionLength) {
+	var dataLength = messageLength - errorCorrectionLength;
+	var encoder = new rs.ReedSolomonEncoder(rs.GenericGF.AZTEC_DATA_8());
+	var decoder = new rs.ReedSolomonDecoder(rs.GenericGF.AZTEC_DATA_8());
+	return {
+		dataLength: dataLength,
+		messageLength: messageLength,
+		errorCorrectionLength: errorCorrectionLength,
+
+		encode : function (message) {
+			encoder.encode(message, errorCorrectionLength);
+		},
+
+		decode: function (message) {
+			decoder.decode(message, errorCorrectionLength);
+		}
+	};
+}
+
+const info = document.getElementById("info");
+const target = document.getElementById("target");
+const preview = document.getElementById("preview");
 const ouptut = document.getElementById("output");
 const text = document.getElementById("text");
 const imageUpload = document.getElementById("source");
 const buffer = document.getElementById("buffer");
 const display = document.getElementById("display");
+const textCount = document.getElementById("count");
+const gain = document.getElementById("gain");
 const ctx = buffer.getContext("2d");
 
-const gain = 4;
 const mainSize = 512;
+const ec = RS(32, 16);
+const maxLength = Math.pow(mainSize / 2 / 4, 2) / 8;
+const contentLength = Math.floor(maxLength * ec.dataLength / ec.messageLength);
+
+text.maxLength = contentLength;
+textCount.innerHTML = `${text.value.length}/${contentLength}`;
 
 function encodeImage(image) {
   const message = text.value;
-  const binaryString = message.split("").map((c) => c.charCodeAt(0).toString(2).padStart(8, 0)).join("").padEnd(1024, 0);
+  const binaryString = convertBinary(message);
   
   const [ size, width, height ] = getPo2Size(image.width, image.height);
   
@@ -31,7 +61,7 @@ function encodeImage(image) {
   convertRGB(imageData, dataArray);
   ctx.putImageData(imageData, 0, 0);
   
-  output.innerHTML = "Binary Encoding: " + binaryString;
+  // output.innerHTML = "Binary Encoding: " + binaryString;
   
   display.src = buffer.toDataURL();
 }
@@ -43,9 +73,7 @@ function recursiveEncode(dataArray, currentSize, desiredSize, binaryString) {
     idwtApply(dataArray, currentSize, LL, LH, HL, HH);
   } else {
     const [ LL, LH, HL, HH ] = dwtApply(dataArray, currentSize);
-    const [ LL2, LH2, HL2, HH2 ] = dwtApply(HH, currentSize);
-    imageEncode(HH2, currentSize / 4, binaryString);
-    idwtApply(HH, currentSize / 2, LL2, LH2, HL2, HH2);
+    imageEncode(HH, currentSize / 2, binaryString);
     idwtApply(dataArray, currentSize, LL, LH, HL, HH);
   }
 }
@@ -53,8 +81,8 @@ function recursiveEncode(dataArray, currentSize, desiredSize, binaryString) {
 function decodeImage(image) {
   const [ size, width, height ] = getPo2Size(image.width, image.height);
   
-  c.width = width;
-  c.height = height;
+  buffer.width = width;
+  buffer.height = height;
   ctx.drawImage(image, 0, 0, width, height);
   
   const imageData = ctx.getImageData(0, 0, size, size);
@@ -65,8 +93,8 @@ function decodeImage(image) {
   const asciiString = convertASCII(binaryString);
   
   output.innerHTML = "Decoded ASCII: " + asciiString;
-  output.innerHTML += "<br>";
-  output.innerHTML += "Binary Decoding: " + binaryString;
+  // output.innerHTML += "<br>";
+  // output.innerHTML += "Binary Decoding: " + binaryString;
 }
 
 function recursiveDecode(dataArray, currentSize, desiredSize) {
@@ -75,19 +103,62 @@ function recursiveDecode(dataArray, currentSize, desiredSize) {
     return recursiveDecode(LL, currentSize / 2, desiredSize);
   } else {
     const [ LL, LH, HL, HH ] = dwtApply(dataArray, currentSize);
-    const [ LL2, LH2, HL2, HH2 ] = dwtApply(HH, currentSize / 2);
-    return imageDecode(HH2, currentSize / 4);
+    return imageDecode(HH, currentSize / 2);
   }
 }
 
+function convertBinary(asciiString) {
+  const bufferArray = new Uint8Array(ec.messageLength);
+  const intArray = new Uint8Array(maxLength);
+  
+  const contentLength = Math.min(intArray.length, asciiString.length);
+  const numChunks = Math.floor(contentLength / ec.dataLength);
+  
+  for (let i = 0; i < numChunks; i++) {
+    for (let j = 0; j < ec.dataLength; j++) {
+      if (i * ec.dataLength + j >= asciiString.length) break;
+      bufferArray[j] = asciiString[i * ec.dataLength + j].charCodeAt(0);
+    }
+    
+    ec.encode(bufferArray);
+    
+    for (let j = 0; j < ec.messageLength; j++) {
+      intArray[i * ec.messageLength + j] = bufferArray[j];
+    }
+  }
+  
+  return Array.from(intArray).map((n) => n.toString(2).padStart(8, 0)).join("");
+}
+
 function convertASCII(binaryString) {
-  let res = "";
+  const bufferArray = new Uint8Array(ec.messageLength);
+  const intArray = new Uint8Array(maxLength);
+  let offset = 0;
   
   while (binaryString.length > 0) {
     const block = binaryString.substring(0, 8);
-    res += String.fromCharCode(parseInt(block, 2));
+    intArray[offset++] = parseInt(block, 2);
     binaryString = binaryString.substring(8);
   }
+  
+  let res = "";
+  
+  for (let i = 0; i < maxLength; i += ec.messageLength) {
+    for (let j = 0; j < ec.messageLength; j++) {
+      bufferArray[j] = intArray[i + j];
+    }
+    
+    try {
+      ec.decode(bufferArray);
+    } catch (e) {
+      console.log("failed to correct", i);
+    }
+    
+    for (let j = 0; j < ec.dataLength; j++) {
+      res += String.fromCharCode(bufferArray[j]);
+    }
+  }
+  
   return res;
 }
 
@@ -250,7 +321,7 @@ function pearsonCorrelation(X, Y) {
 function nextNoiseVector(noise) {
   const noiseVector = new Float32Array(10);
   for (let i = 0; i < noiseVector.length; i++) {
-    noiseVector[i] = (noise() * 2.0 - 1.0) * gain;
+    noiseVector[i] = (noise() * 2.0 - 1.0) * gain.value;
   }
   return noiseVector;
 }
@@ -280,24 +351,37 @@ function readData(outputArray, size, dataArray, x, y) {
 
 function getPo2Size(width, height) {
   if (height < width) {
-    const size = Math.max(Math.pow(2, Math.ceil(Math.log(height)/Math.log(2))), mainSize);
+    const size = Math.max(Math.pow(2, Math.round(Math.log(height)/Math.log(2))), mainSize);
     return [ size, Math.round(size * width / height), size ];
   } else {
-    const size = Math.max(Math.pow(2, Math.ceil(Math.log(width)/Math.log(2))), mainSize);
+    const size = Math.max(Math.pow(2, Math.round(Math.log(width)/Math.log(2))), mainSize);
     return [ size, size, Math.round(size * height / width) ];
   }
 }
 
+function changeTarget(src) {
+  target.src = src;
+  target.onload = () => {
+    info.innerHTML = `${target.width}x${target.height}`;
+    preview.width = target.width / target.height * 512;
+    preview.getContext("2d").drawImage(target, 0, 0, preview.width, preview.height);
+  };
+}
+
+imageUpload.addEventListener("change", (e) => {
+  changeTarget(window.URL.createObjectURL(imageUpload.files[0]));
+});
+
+text.addEventListener("keyup", () => {
+  textCount.innerHTML = `${text.value.length}/${contentLength}`;
+});
+
 document.getElementById("encode").addEventListener("click", () => {
-  const image = new Image();
-  image.src = window.URL.createObjectURL(imageUpload.files[0]);
-  image.onload = () => encodeImage(image);
+  encodeImage(target);
 });
 
 document.getElementById("decode").addEventListener("click", () => {
-  const image = new Image();
-  image.src = window.URL.createObjectURL(imageUpload.files[0]);
-  image.onload = () => decodeImage(image);
+  decodeImage(target);
 });
 
 document.getElementById("save").addEventListener("click", () => {
@@ -306,12 +390,31 @@ document.getElementById("save").addEventListener("click", () => {
 
 window.addEventListener("paste", (e) => {
   const data = (e || e.originalEvent).clipboardData;
-  const blob = data.items[0].getAsFile();
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const image = new Image();
-    image.src = e.target.result;
-    image.onload = () => encodeImage(image);
-  };
-  reader.readAsDataURL(blob);
+  const blob = Array.from(data.items).find((item) => item.type.startsWith("image")).getAsFile();
+  if (blob) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      changeTarget(e.target.result);
+    };
+    reader.readAsDataURL(blob);
+  }
+});
+
+const drop = document.getElementById("drop");
+
+drop.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const data = e.dataTransfer;
+  const blob = Array.from(data.items).find((item) => item.type.startsWith("image")).getAsFile();
+  if (blob) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      changeTarget(e.target.result);
+    };
+    reader.readAsDataURL(blob);
+  }
+});
+
+drop.addEventListener("dragover", (e) => {
+  e.preventDefault();
 });
