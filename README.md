@@ -2,39 +2,18 @@
 
 Stegranographic encoding of data into image using DWT and DCT.
 
-Based off `https://www.researchgate.net/publication/26621646_Combined_DWT-DCT_digital_image_watermarking`
+## Credits
 
-# Usage
+An implementation of [Ali Al-Haj, Combined DWT-DCT dicital image watermarking, September 2007](https://www.researchgate.net/publication/26621646_Combined_DWT-DCT_digital_image_watermarking)
 
-Prerequisites
+Uses [reedsolomon.js](https://github.com/cho45/reedsolomon.js/)
 
-```
-$ pip install -r requirements.txt
-```
+## Usage
 
-Encoding
+The project is fully static. You can host on any static html hosting server by pointing or uploading the files in this repo. I specifically used python
 
 ```
-$ python encode.py
-$ image: ogey.jpg
-$ message: <enter your message here>
-$ encoded into steg.jpg
+$ python -m http.server
 ```
 
-Decoding
-
-```
-$ python decode.py
-$ <your messsage>
-```
-
-# TODO
-
-As of now it resizes any image into 512x512 greyscale.
-
-- Error correcting encoding of data -- QR???
-- Do this in JS for as a HTML5 web demo.
-- Arbitrary resolutions.
-- Proper YCbCr for colour encoding.
-- Maybe implement as GLSL shader??
-- Learn fast cosine transform to remove scipy dct dependency.
+A live version of it hosted on my [github page](https://vv4t.github.io/demo/steganography/). 
