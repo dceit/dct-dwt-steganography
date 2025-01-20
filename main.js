@@ -93,7 +93,7 @@ function decodeImage(image) {
   const binaryString = decodedMessage.join("");
   const asciiString = convertASCII(binaryString);
   
-  output.innerHTML = "Decoded ASCII: " + asciiString;
+  output.innerText = "Decoded ASCII: " + asciiString;
   // output.innerHTML += "<br>";
   // output.innerHTML += "Binary Decoding: " + binaryString;
 }
